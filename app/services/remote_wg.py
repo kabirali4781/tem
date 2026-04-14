@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import shlex
 import subprocess
@@ -33,20 +33,58 @@ class RemoteWG:
 
     def remove_peer(self, server: Server, peer: Peer) -> None:
         awg_cmd = f"sudo awg set {shlex.quote(server.wg_interface)} peer {shlex.quote(peer.public_key)} remove"
-        awk_cmd = (
-            "awk -v k='PublicKey = "
-            + peer.public_key
-            + "' '"
-            + "BEGIN{skip=0} "
-            + "\\$0 ~ k {skip=1} "
-            + "skip && /^\\[/ {if ($0 ~ /^\\[Peer\\]/) skip=0} "
-            + "!skip {print}"
-            + "' "
-            + shlex.quote(server.wg_conf_path)
-            + " > /tmp/awg0.conf && sudo mv /tmp/awg0.conf "
-            + shlex.quote(server.wg_conf_path)
-        )
-        self._ssh(server, f"{awg_cmd} && {awk_cmd}")
+        cleanup_cmd = self._build_remote_cleanup_cmd(server.wg_conf_path, peer.public_key)
+        self._ssh(server, f"{awg_cmd} && {cleanup_cmd}")
+
+    def _build_remote_cleanup_cmd(self, wg_conf_path: str, public_key: str) -> str:
+        script = f'''
+from pathlib import Path
+
+path = Path({wg_conf_path!r})
+target = {public_key!r}
+lines = path.read_text(encoding="utf-8").splitlines()
+out = []
+block = []
+in_peer = False
+remove_block = False
+
+
+def flush_block():
+    global block, remove_block
+    if block and not remove_block:
+        out.extend(block)
+    block = []
+    remove_block = False
+
+
+for line in lines:
+    if line.strip() == "[Peer]":
+        if in_peer:
+            flush_block()
+        in_peer = True
+        block = [line]
+        remove_block = False
+        continue
+
+    if in_peer and line.startswith("[") and line.strip() != "[Peer]":
+        flush_block()
+        in_peer = False
+        out.append(line)
+        continue
+
+    if in_peer:
+        block.append(line)
+        if line.strip() == f"PublicKey = {{target}}":
+            remove_block = True
+    else:
+        out.append(line)
+
+if in_peer:
+    flush_block()
+
+path.write_text("\\n".join(out).rstrip() + "\\n", encoding="utf-8")
+'''
+        return "sudo python3 -c " + shlex.quote(script)
 
     def _ssh(self, server: Server, remote_cmd: str) -> None:
         cmd = [

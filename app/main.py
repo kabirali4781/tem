@@ -96,14 +96,14 @@ def disconnect_session(payload: DisconnectRequest) -> DisconnectResponse:
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    peer.status = "deleted"
-    peer.last_handshake = datetime.utcnow().isoformat() + "Z"
+    released_ip = peer.address
+    peers = [item for item in peers if item.peer_id != peer.peer_id]
     _persist(peers, servers, rotations)
     return DisconnectResponse(
         status="deleted",
         peer_id=peer.peer_id,
         public_key=peer.public_key,
-        released_ip=peer.address,
+        released_ip=released_ip,
     )
 
 
@@ -158,15 +158,7 @@ def _create_peer(peers: list[Peer], server: Server, now: datetime) -> Peer:
         min(settings.max_peers, pool_capacity) if settings.max_peers is not None else pool_capacity
     )
     if len(active_peers) >= max_active_peers:
-        deleted = [p for p in peers if p.status == "deleted"]
-        if deleted:
-            reuse = deleted[0]
-            reuse.status = "active"
-            reuse.last_handshake = now.isoformat() + "Z"
-            reuse.server_code = server.country_code
-            return reuse
-        oldest = min(active_peers, key=lambda p: p.created_at)
-        oldest.status = "deleted"
+        raise HTTPException(status_code=409, detail="address pool exhausted")
 
     private_key, public_key = generate_wireguard_keypair()
     address = _allocate_address(peers)
