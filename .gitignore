@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+vpn_control.db
+.env
+awg0.conf
+peers.json
