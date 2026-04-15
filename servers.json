@@ -21,5 +21,28 @@
     "h2": 2,
     "h3": 3,
     "h4": 4
+  },
+  {
+    "country_name": "Germany",
+    "country_code": "de2",
+    "ip": "89.167.64.31",
+    "ssh_key_path": "/root/.ssh/de1.pem",
+    "public_key": "PuRW1FadxWKtNu8S70WVROIQF0e8PwFGGE01jj3Lmlg=",
+    "ssh_user": "root",
+    "ssh_port": 22,
+    "wg_interface": "awg0",
+    "wg_conf_path": "/etc/amnezia/amneziawg/awg0.conf",
+    "mtu": 1280,
+    "dns": "1.1.1.1",
+    "allowed_ips": "0.0.0.0/0",
+    "jc": 4,
+    "jmin": 50,
+    "jmax": 1000,
+    "s1": 0,
+    "s2": 0,
+    "h1": 1,
+    "h2": 2,
+    "h3": 3,
+    "h4": 4
   }
 ]
